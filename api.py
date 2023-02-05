@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from req import Req
 from datetime import datetime
 import json
 from fetch import Fetch
@@ -7,44 +6,61 @@ from fetch import Fetch
 app = FastAPI()
 fetch = Fetch()
 
+
 @app.get("/hello")
 def say_hello():
     return "Hi :)"
 
 @app.get("/code_frequency/{owner}/{repo}")
 def get_code_frequency(owner: str, repo: str):
-    # print(fetch.get_data)
-    # print(fetch.get_data)
-    return fetch.get_data[f"{owner}/{repo}"]["code_frequency"]
+    return fetch.get_data[f"{owner}/{repo}"].get("code_frequency", None)
+
 
 @app.get("/commit_history/{owner}/{repo}")
 def get_commit_history(owner, repo):
-    # return None
-    return fetch.get_data[f"{owner}/{repo}"]["commit_history"]
+    return fetch.get_data[f"{owner}/{repo}"].get("commit_history", None)
 
 
 @app.get("/issue_activity/{owner}/{repo}")
 def get_issue_activity(owner, repo):
-    return fetch.get_data[f"{owner}/{repo}"]["issue_activity"]
+    return fetch.get_data[f"{owner}/{repo}"].get("issue_activity",None)
+
 
 @app.get("/pull_request_activity/{owner}/{repo}")
 def get_pull_request_activity(owner, repo):
-    # print(fetch.get_data)
-    return fetch.get_data[f"{owner}/{repo}"]["pull_request_activity"]
+    return fetch.get_data[f"{owner}/{repo}"].get("pull_request_activity",None)
+
 
 @app.get("/star_activity/{owner}/{repo}")
-def get_pull_request_activity(owner, repo):
-    # print(fetch.get_data)
-    return fetch.get_data[f"{owner}/{repo}"]["star_activity"]
+def get_star_activity(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("star_activity",None)
+
 
 @app.get("/issue_count/{owner}/{repo}")
 def get_issue_count(owner, repo):
-    # print(fetch.get_data)
-    return fetch.get_data[f"{owner}/{repo}"]["issue_count"]
+    return fetch.get_data[f"{owner}/{repo}"].get("issue_count",None)
 
 
 @app.get("/pull_request_count/{owner}/{repo}")
-def get_(owner, repo):
-    # print(fetch.get_data)
-    return fetch.get_data[f"{owner}/{repo}"]["pull_request_count"]
+def get_pull_request_count(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("pull_request_count",None)
 
+
+@app.get("/top_contributors/{owner}/{repo}")
+def get_top_contributors(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("top_contributors",None)
+
+
+@app.get("/recent_commits/{owner}/{repo}")
+def get_recent_commits(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("recent_commits", None)
+
+
+@app.get("/recent_issues/{owner}/{repo}")
+def get_recent_issues(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("recent_issues",None)
+
+
+@app.get("/repository_info/{owner}/{repo}")
+def get_repository_info(owner, repo):
+    return fetch.get_data[f"{owner}/{repo}"].get("repository_info",None)

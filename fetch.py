@@ -1,49 +1,74 @@
 import json
-from req import Req
+from _request import _Request
 from datetime import datetime
 import pandas as pd
 from collections import defaultdict
 from datetime import datetime, timedelta
 import operator
+from firestore import FirestoreDB
 
 
 class Fetch:
     def __init__(self):
-        self.req = Req()
+        self._request = _Request()
         self.data = {}
+        self.collection_index = 0
+
+        self.fire_ctx = FirestoreDB()
+        self.fire_app: FirestoreDB = self.fire_ctx.get_app
+        self.db: FirestoreDB = self.fire_ctx.get_db
+        repo_ref = self.db.collection(u'lens').document(u'repositories').get()
+        repo_names = repo_ref.to_dict()["repo_names"]
+
+        for repo in repo_names:
+            self.fetch_and_write(repo)
+
+    def fetch_and_write(self, repo):
+        collection_ref = self.db.collection(u'lens-repositories').document(f"{repo['owner']}-{repo['repo']}")
+        collection_ref.set({
+            u'repository_info': self.repository_info(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        collection_ref.set({
+            u'commit_history': self.commit_history(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        collection_ref.set({
+            u'code_frequency': self.code_frequency(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        recent_issues, issue_activity =  self.issue_activity(repo['owner'], repo['repo'])
+        collection_ref.set({
+            u'recent_issues': recent_issues
+        }, merge=True)
+
+        collection_ref.set({
+            u'issue_activity': issue_activity
+        }, merge=True)
+
+        collection_ref.set({
+            u'issue_count': self.issue_count(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        collection_ref.set({
+            u'pull_request_count': self.pull_request_count(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        collection_ref.set({
+            u'pull_request_activity': self.pull_request_activity(repo['owner'], repo['repo'])
+        }, merge=True)
+
+        collection_ref.set({
+            u'star_activity': self.star_activity(repo['owner'], repo['repo'])
+        }, merge=True)
         
-        with open("repositories.json", "r") as f:
-            self.repositories = json.load(f)['repositories']
+        collection_ref.set({
+            u'top_contributors': self.top_contributors(repo['owner'], repo['repo'])
+        }, merge=True)
 
-        for repository in self.repositories:
-            owner = repository['owner']
-            repo = repository['repo']
-            self.data[self._get_hash(owner, repo)] = {}
-
-        self.fetch()
-
-    def fetch(self):
-        for repository in self.repositories:
-            owner = repository['owner']
-            repo = repository['repo']
-            self.commit_history(owner, repo)
-            
-            self.code_frequency(owner, repo)
-
-            self.issue_count(owner, repo)
-
-            self.issue_activity(owner, repo)
-            
-            self.pull_request_count(owner, repo)
-
-            self.pull_request_activity(owner, repo)
-            print('d')
-
-            self.star_activity(owner, repo)
-            print('e')
-            
-            self.get_top_contributors(owner, repo)
-            print('f')
+        collection_ref.set({
+            u'recent_commits': self.recent_commits(repo['owner'], repo['repo'])
+        }, merge=True)
 
     @property
     def get_data(self):
@@ -52,17 +77,26 @@ class Fetch:
     def _get_hash(self, owner, repo):
         return f"{owner}/{repo}"
 
+    def repository_info(self, owner, repo):
+        data = self._request.post_rest(
+            f"/repos/{owner}/{repo}", fetch_all=False)
 
+        if data is None:
+            return None
+        
+        # self.data[self._get_hash(owner, repo)
+        #         ]['repository_info'] = data
+        return data
+        
     def commit_history(self, owner, repo):
         # Returns the total commit counts for the owner and total commit counts in all. all is everyone combined, including the owner in the last 52 weeks
-        data = self.req.post_rest(f"/repos/{owner}/{repo}/stats/participation")
+        data = self._request.post_rest(f"/repos/{owner}/{repo}/stats/participation")
         if data is None:
             return None
 
         # Initialize the series data
         series = [
-            {"data": data["all"], "type": "line", "smooth": True, "showSymbol": False},
-            # {"data": data["owner"], "type": "line", "stack": "owner"}
+            {"data": data["all"], "type": "line"},
         ]
 
         # Define the chart option
@@ -71,25 +105,13 @@ class Fetch:
             "xAxis": {"data": x_range},
             "yAxis": {},
             "series": series,
-            "tooltip": {
-                "trigger": 'axis',
-            },
-            "dataZoom": [
-                {
-                    "type": 'slider',
-                    "start": 50,
-                    "bottom": 10,
-                    # "xAxisIndex": 0,
-                    "end": 100
-                },
-            ],
         }
-        self.data[self._get_hash(owner, repo)]['commit_history'] = option
-
+        # self.data[self._get_hash(owner, repo)]['commit_history'] = option
+        return option
 
     def code_frequency(self, owner, repo):
         # weekly aggregate of the number of additions and deletions pushed to a repository.
-        data = self.req.post_rest(
+        data = self._request.post_rest(
             f"/repos/{owner}/{repo}/stats/code_frequency")
 
         if data is None:
@@ -100,14 +122,14 @@ class Fetch:
 
         # Initialize the series data
         series = [
-            {"data": [], "type": "line", "stack": "x", "smooth": True, "showSymbol": False},
-            {"data": [], "type": "line", "stack": "x", "smooth": True, "showSymbol": False}
+            {"data": [], "type": "line", "stack": "x"},
+            {"data": [], "type": "line", "stack": "x"}
         ]
 
         # Iterate over the code frequency data
         for item in data:
             # Append the x-axis label
-            x_axis.append(datetime.fromtimestamp(item[0]).date())
+            x_axis.append(str(datetime.fromtimestamp(item[0]).date()))
 
             # Append the series data
             series[0]["data"].append(item[1])
@@ -118,31 +140,17 @@ class Fetch:
             "xAxis": {"data": x_axis},
             "yAxis": {},
             "series": series,
-            "tooltip": {
-                "trigger": 'axis',
-            },
-            "dataZoom": [
-                {
-                    "type": 'slider',
-                    "start": 50,
-                    "bottom": 10,
-                    "xAxisIndex": 0,
-                    "end": 100
-                },
-            ],
-
         }
-        print(option)
-        self.data[self._get_hash(owner, repo)]['code_frequency'] = option
-
+        return option
+        # self.data[self._get_hash(owner, repo)]['code_frequency'] = option
 
     def issue_activity(self, owner, repo):
-        now = datetime.now()
-        since_date = (now - timedelta(days=30)
-                      ).date().strftime("%Y-%m-%dT%H:%M:%SZ")
+        # now = datetime.now()
+        # since_date = (now - timedelta(days=30)
+        #               ).date().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        data = self.req.post_rest(f"/repos/{owner}/{repo}/issues",
-                                  {"state": "all", "per_page": 100, "page": 1, "sort": "updated", "direction": "desc"})
+        data = self._request.post_rest(f"/repos/{owner}/{repo}/issues",
+                                  {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_fetch=3)
 
         if data is None:
             return None
@@ -151,6 +159,7 @@ class Fetch:
         # x_data = []
         y_data_state = {}
 
+        recent_issues = []
         # Iterate through the issues
         for issue in data:
             is_pull_request = issue.get("pull_request", None)
@@ -178,10 +187,22 @@ class Fetch:
                 # Increment the count for closed issues
                 y_data_state[updated_at]["closed"] += 1
 
+            issue["created_at"] = str(issue["created_at"])
+            issue["updated_at"] = str(issue["updated_at"])
+
+            if len(recent_issues) < 5:
+                recent_issues.append(issue)
+        
         # print(y_data_state)
         # zipped = zip(y_data_state.keys(), y_data_state.values())
         # zipped = sorted(zipped, key=lambda x: x[0])
-        zipped = {k: v for k, v in sorted(y_data_state.items(), key=lambda item: item[0], reverse=False)}
+        zipped = {str(k): v for k, v in sorted(
+            y_data_state.items(), key=lambda item: item[0], reverse=False)}
+        
+        y_open = [v['open'] for _, v in zipped.items()]
+        y_closed = [v['closed'] for _, v in zipped.items()]
+        if len(y_open) == 0 and len(y_closed) == 0:
+            return None
 
         # Define the option for the stacked bar chart
         option = {
@@ -191,26 +212,24 @@ class Fetch:
             "yAxis": {},
             "series": [
                 {
-                    "data": [v['open'] for _, v in zipped.items()],
+                    "data": y_open,
                     "type": "bar",
                     "stack": "issue_activity",
                     "name":"open"
                 },
                 {
-                    "data": [v['closed'] for _, v in zipped.items()],
+                    "data": y_closed,
                     "type": "bar",
                     "stack": "issue_activity",
                     "name":"closed"
                 }
             ],
-            "tooltip": {
-                "trigger": 'axis',
-            }
         }
-        self.data[self._get_hash(owner, repo)]['issue_activity'] = option
+        return recent_issues, option
+        # self.data[self._get_hash(owner, repo)]['recent_issues'] = recent_issues
+        # self.data[self._get_hash(owner, repo)]['issue_activity'] = option
 
-
-    def issue_count(self, owner, repo ):
+    def issue_count(self, owner, repo):
         query = """
             query ($owner: String!, $name: String!) {
             repository(owner: $owner, name: $name) {
@@ -229,57 +248,29 @@ class Fetch:
             "name": repo,
         }
 
-        data = self.req.post_query(query, variables)
+        data = self._request.post_query(query, variables)
 
         if data is None:
             return None
 
-        
         option = {
-            "tooltip": {
-                "trigger": 'item'
-            },
-            "legend": {
-                "top": '5%',
-                "left": 'center'
-            },
             "series": [
                 {
-                "name": 'Issue Count',
-                "type": 'pie',
-                "radius": ['40%', '70%'],
-                "avoidLabelOverlap": False,
-                "itemStyle": {
-                    "borderRadius": 10,
-                    "borderColor": '#fff',
-                    "borderWidth": 2
-                },
-                "label": {
-                    "show": False,
-                    "position": 'center'
-                },
-                "emphasis": {
-                    "label": {
-                    "show": True,
-                    "fontSize": 15,
-                    "fontWeight": 'bold'
-                    }
-                },
-                "labelLine": {
-                    "show": False
-                },
-                "data": [
-                    { "value": data["data"]["repository"]["open"]["totalCount"], "name": 'Open' },
-                    { "value": data["data"]["repository"]["closed"]["totalCount"], "name": 'Closed' },
-                ]
+                    "data": [
+                        {"value": data["data"]["repository"]
+                            ["open"]["totalCount"], "name": 'Open'},
+                        {"value": data["data"]["repository"]
+                            ["closed"]["totalCount"], "name": 'Closed'},
+                    ]
                 }
             ]
-            };
-        self.data[self._get_hash(owner, repo)]['issue_count'] = option
+        }
+        # self.data[self._get_hash(owner, repo)]['issue_count'] = option
+        return option
 
         # Initialize the pull request data
 
-    def pull_request_count(self, owner, repo ):
+    def pull_request_count(self, owner, repo):
         query = """
             query ($owner: String!, $name: String!) {
             repository(owner: $owner, name: $name) {
@@ -298,59 +289,28 @@ class Fetch:
             "name": repo,
         }
 
-        data = self.req.post_query(query, variables)
+        data = self._request.post_query(query, variables)
 
         if data is None:
             return None
 
-        
         option = {
-            "tooltip": {
-                "trigger": 'item'
-            },
-            "legend": {
-                "top": '5%',
-                "left": 'center'
-            },
             "series": [
                 {
-                "name": 'Issue Count',
-                "type": 'pie',
-                "radius": ['40%', '70%'],
-                "avoidLabelOverlap": False,
-                "itemStyle": {
-                    "borderRadius": 10,
-                    "borderColor": '#fff',
-                    "borderWidth": 2
-                },
-                "label": {
-                    "show": False,
-                    "position": 'center'
-                },
-                "emphasis": {
-                    "label": {
-                    "show": True,
-                    "fontSize": 15,
-                    "fontWeight": 'bold'
-                    }
-                },
-                "labelLine": {
-                    "show": False
-                },
-                "data": [
-                    { "value": data["data"]["repository"]["open"]["totalCount"], "name": 'Open' },
-                    { "value": data["data"]["repository"]["closed"]["totalCount"], "name": 'Closed' },
-                ]
+                    "data": [
+                        {"value": data["data"]["repository"]
+                            ["open"]["totalCount"], "name": 'Open'},
+                        {"value": data["data"]["repository"]
+                            ["closed"]["totalCount"], "name": 'Closed'},
+                    ]
                 }
             ]
-            };
-        self.data[self._get_hash(owner, repo)]['pull_request_count'] = option
-
-        # Initialize the pull request data
-
+        }
+        # self.data[self._get_hash(owner, repo)]['pull_request_count'] = option
+        return option
 
     def pull_request_activity(self, owner, repo):
-        data = self.req.post_rest(f"/repos/{owner}/{repo}/pulls",
+        data = self._request.post_rest(f"/repos/{owner}/{repo}/pulls",
                                   {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"})
 
         # data.extend(self.req.post_rest(f"/repos/{owner}/{repo}/pulls",
@@ -389,7 +349,8 @@ class Fetch:
         # print(y_data_state)
         # zipped = zip(y_data_state.keys(), y_data_state.values())
         # zipped = sorted(zipped, key=lambda x: x[0])
-        zipped = {k: v for k, v in sorted(y_data_state.items(), key=lambda item: item[0], reverse=False)}
+        zipped = {str(k): v for k, v in sorted(
+            y_data_state.items(), key=lambda item: item[0], reverse=False)}
 
         # Define the option for the stacked bar chart
         option = {
@@ -411,12 +372,10 @@ class Fetch:
                     "name":"closed"
                 }
             ],
-            "tooltip": {
-                "trigger": 'axis',
-            }
         }
-        self.data[self._get_hash(owner, repo)
-                  ]['pull_request_activity'] = option
+        # self.data[self._get_hash(owner, repo)
+        #           ]['pull_request_activity'] = option
+        return option
 
     def pull_request_activity_ql(self, owner, repo):
         # Returns the number of pull requests opened and closed in the repository over the 12 months prior to the current date.
@@ -450,7 +409,7 @@ class Fetch:
         # Initialize the pull request data
         pull_requests = []
         while True:
-            data = self.req.post_query(query, variables)
+            data = self._request.post_query(query, variables)
             # data = json.loads(res.text)
             latest_dt = datetime.strptime(
                 data["data"]["repository"]["pullRequests"]["nodes"][-1]["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").date()
@@ -501,13 +460,11 @@ class Fetch:
                     "name": 'Closed'
                 }
             ],
-            "tooltip": {
-                "trigger": 'axis',
-            }
         }
         # return option
-        self.data[self._get_hash(owner, repo)
-                  ]['pull_request_activity'] = option
+        # self.data[self._get_hash(owner, repo)
+        #           ]['pull_request_activity'] = option
+        return option
 
     def star_activity(self, owner, repo):
         query = """
@@ -536,26 +493,26 @@ class Fetch:
         max_fetch_count = 3
         current_fetch = 0
         while current_fetch <= max_fetch_count:
-            data = self.req.post_query(
+            data = self._request.post_query(
                 query, variables)
 
-            print(current_fetch)
+            # print(current_fetch)
             current_fetch += 1
 
             if data is None:
                 return None
-                
+
             # Extract the results
             for edge in data["data"]["repository"]["stargazers"]["edges"]:
                 date_str = datetime.strptime(
                     edge["starredAt"], "%Y-%m-%dT%H:%M:%SZ").date()
                 is_date_exist = results.get(date_str, None)
-                print(date_str)
+                # print(date_str)
 
                 if is_date_exist is None:
                     results[date_str] = 0
                 results[date_str] += 1
-            
+
             # Check if there are more pages
             if data["data"]["repository"]["stargazers"]["pageInfo"]["hasNextPage"]:
                 variables["cursor"] = data["data"]["repository"]["stargazers"]["pageInfo"]["endCursor"]
@@ -564,7 +521,8 @@ class Fetch:
 
         # zipped = zip(results.keys(), results.values())
         # zipped = sorted(zipped, key=lambda x: x[0])
-        zipped = {k: v for k, v in sorted(results.items(), key=lambda item: item[0], reverse=False)}
+        zipped = {str(k): v for k, v in sorted(
+            results.items(), key=lambda item: item[0], reverse=False)}
 
         # print([k for k, _ in zipped])
         # print([v for _, v in zipped])
@@ -581,21 +539,14 @@ class Fetch:
                 {
                     "data": list(zipped.values()),
                     "type": "line",
-                    "smooth": True, 
-                    "showSymbol": False
                 }
-            ],
-            "tooltip": {
-                "trigger": 'axis',
-            },
+            ]
         }
-        self.data[self._get_hash(owner, repo)
-                  ]['star_activity'] = option
+        # self.data[self._get_hash(owner, repo)
+        #           ]['star_activity'] = option
+        return option
 
-    def get_top_contributors(self, owner, repo):
-        data = self.req.post_rest(f"/repos/{owner}/{repo}/pulls",
-                                  {"per_page": 100})
-
+    def top_contributors(self, owner, repo):
         # Initialize variables to track contributors and their commit count
         contributors = {}
 
@@ -605,28 +556,51 @@ class Fetch:
             "per_page": 100
         }
         # Send GET request to API endpoint
-        data = self.req.post_rest(f"/repos/{owner}/{repo}/contributors", variables=variables, fetch_all=False)
+        data = self._request.post_rest(
+            f"/repos/{owner}/{repo}/contributors", variables=variables, fetch_all=False)
+
         if data is None:
             return None
-        
+
         # Add contributors and their commit count to dictionary
         for user in data:
             contributor_exist = contributors.get(user['login'], None)
             if contributor_exist is None:
                 contributors[user['login']] = {
+                    "login": user['login'],
                     "avatar_url": user['avatar_url'],
                     "html_url": user['html_url'],
                     "contributions": user['contributions']
                 }
             else:
-                contributors[user['login']]["contributions"] += user['contributions']
+                contributors[user['login']
+                             ]["contributions"] += user['contributions']
 
-        print(contributors)
+        # print(contributors)
         # Sort contributors by commit count in descending order
-        contributors = {k: v for k, v in sorted(contributors.items(), key=lambda item: item[1]["contributions"], reverse=False)}
+        contributors = {k: v for k, v in sorted(contributors.items(
+        ), key=lambda item: item[1]["contributions"], reverse=True)}
 
         # Get top 10 contributors
-        top_10_contributors = dict(list(contributors.items())[:10])
+        top_10_contributors = dict(list(contributors.items())[:4])
+
+        # self.data[self._get_hash(owner, repo)
+        #           ]['top_contributors'] = list(top_10_contributors.values())
+        return list(top_10_contributors.values())
 
 
-        self.data[self._get_hash(owner, repo)]['top_contributors'] = contributors
+        
+    def recent_commits(self, owner, repo):
+        variables = {
+            "per_page": 5
+        }
+        data = self._request.post_rest(
+            f"/repos/{owner}/{repo}/commits", variables=variables, fetch_all=False)
+
+        if data is None:
+            return None
+        
+        return data
+        # self.data[self._get_hash(owner, repo)
+        #           ]['recent_commits'] = data
+
