@@ -1,13 +1,13 @@
 import requests
-import json
-from requests.auth import HTTPBasicAuth
-from requests import Session
-from fastapi import FastAPI
+# import json
+# from requests.auth import HTTPBasicAuth
+# from requests import Session
+# from fastapi import FastAPI
 import os
 
-class _Request():
+class GithubRequest():
     def __init__(self):
-        self.BEARER_KEY = os.environ.get('GITHUB_TOKEN')
+        self.BEARER_KEY = os.getenv('GITHUB_BEARER_KEY')
         self.GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
         self.GRAPHQL_HEADERS = {'Authorization': f'Bearer {self.BEARER_KEY}'}
 

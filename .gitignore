@@ -1,3 +1,4 @@
-firebase-adminsdk.json
+firebase_admin_sdk.json
 __pycache__/
 .vscode/
+.env

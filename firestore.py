@@ -4,13 +4,8 @@ import os
 
 class FirestoreDB:
     def __init__(self):
-        
-        # os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8080"
-        # os.environ["GCLOUD_PROJECT"] = "lenspulse-20592"
-        # os.environ["GOOGLE_CLOUD_PROJECT"] = "lenspulse-20592"
-
         # Use a service account.
-        cred = credentials.Certificate('./firebase-adminsdk.json')
+        cred = credentials.Certificate(os.getenv('FIREBASE_ADMIN_SDK_PATH'))
         self.app = firebase_admin.initialize_app(cred)
         self.db = firestore.client()
 

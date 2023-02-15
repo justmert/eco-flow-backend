@@ -1,11 +1,13 @@
-from fastapi import FastAPI
 from datetime import datetime
 import json
-from fetch import Fetch
 
-app = FastAPI()
-fetch = Fetch()
+# API IS NOT IN USE, CHANGED TO FIREBASE
 
+# from fetch_data import Fetch
+# from fastapi import FastAPI
+# app = FastAPI()
+app = None
+fetch = None 
 
 @app.get("/hello")
 def say_hello():
