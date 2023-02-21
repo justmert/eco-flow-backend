@@ -32,8 +32,10 @@ class Fetch:
         self.init_overall()
         # self.all_repo_info_doc_ref = self.info_collection_ref.document(u'_info')
         for repo in self.all_repo_names:
+            print(f'[*] {repo}')
             self.fetch_and_write(repo)
 
+        self.overall_data['total_project_count'] = len(self.all_repo_names)
         self.write_overall()
 
     def init_overall(self):
@@ -49,6 +51,7 @@ class Fetch:
             "_code_frequency": {},
             "_issue_activity": {},
             "recent_issues": [],
+            "recent_commits": [],
             "issue_count": {
                 "series": [
                     {
@@ -69,21 +72,149 @@ class Fetch:
                     }
                 ]
             },
-            "_pull_request_activity": {},
+            "top_contributors": {},
+            "total_project_count": 0,
+            "total_star_count": 0
         }
 
     def write_overall(self):
 
         # ----------------- commit history -----------------
-        self.overall_collection_ref.document(u'_overall').set({
-            u'commit_history': self.overall_data['commit_history'],
-        }, merge=True)
+        # if self.overall_data["commit_history"]:
+        self.overall_commit_history()
 
         # ----------------- code frequency -----------------
-        if self.overall_data["_code_frequency"]:
-            # Initialize the x-axis labels
-            # x_axis = []
+        # if self.overall_data["_code_frequency"]:
+        # Initialize the x-axis labels
+        # x_axis = []
 
+        self.overall_code_frequency()
+
+        # ----------------- issue activity -----------------
+        # if self.overall_data["_issue_activity"]:
+
+        self.overall_issue_activity()
+
+        # ----------------- issue count -----------------
+        self.overall_issue_count()
+
+        # ----------------- pull request count -----------------
+        self.overall_pull_request_count()
+
+        # ----------------- recent commits -----------------
+        self.overall_recent_commits()
+
+        # ----------------- top contributors -----------------
+        # if self.overall_data["top_contributors"]:
+
+        self.overall_top_contributors()
+
+        # ----------------- total project count -----------------
+        self.overall_total_project_count()
+
+        # ----------------- total star count -----------------
+        self.overall_star_count()
+
+    def overall_total_project_count(self):
+        self.overall_collection_ref.document(u'_overall').set({
+            u'total_project_count': self.overall_data["total_project_count"],
+        }, merge=True)
+
+    def overall_star_count(self):
+        self.overall_collection_ref.document(u'_overall').set({
+            u'total_star_count': self.overall_data["total_star_count"],
+        }, merge=True)
+
+    def overall_top_contributors(self):
+        if (len(self.overall_data["top_contributors"]) == 0):
+            option = None
+        else:
+            contributors = {k: v for k, v in sorted(self.overall_data["top_contributors"].items(
+            ), key=lambda item: item[1]["contributions"], reverse=True)}
+
+            option = list(contributors.values())[:4]
+
+        self.overall_collection_ref.document(u'_overall').set({
+            u'top_contributors': option,
+        }, merge=True)
+
+    def overall_recent_commits(self):
+        if self.overall_data["recent_commits"]:
+            option = self.overall_data["recent_commits"]
+        else:
+            option = None
+        self.overall_collection_ref.document(u'_overall').set({
+            u'recent_commits': option,
+        }, merge=True)
+
+    def overall_pull_request_count(self):
+        if self.overall_data["pull_request_count"]["series"][0]["data"][0]["value"] == 0 and self.overall_data["pull_request_count"]["series"][0]["data"][1]["value"] == 0:
+            option = None
+
+        else:
+            option = self.overall_data["pull_request_count"]
+
+        self.overall_collection_ref.document(u'_overall').set({
+            u'pull_request_count': option,
+        }, merge=True)
+
+    def overall_issue_count(self):
+        if self.overall_data["issue_count"]["series"][0]["data"][0]["value"] == 0 and self.overall_data["issue_count"]["series"][0]["data"][1]["value"] == 0:
+            option = None
+
+        else:
+            option = self.overall_data["issue_count"]
+        self.overall_collection_ref.document(u'_overall').set({
+            u'issue_count': option,
+        }, merge=True)
+
+    def overall_issue_activity(self):
+        zipped = {str(k): v for k, v in sorted(
+            self.overall_data["_issue_activity"].items(), key=lambda item: item[0], reverse=False)}
+
+        y_open = [v['open'] for _, v in zipped.items()]
+        y_closed = [v['closed'] for _, v in zipped.items()]
+        if len(y_open) == 0 and len(y_closed) == 0:
+            option = None
+            self.overall_data["recent_issues"] = None
+
+        else:
+            option = {
+                "xAxis": {
+                    "data": list(zipped.keys())
+                },
+                "yAxis": {},
+                "series": [
+                    {
+                        "data": y_open,
+                        "type": "bar",
+                        "stack": "issue_activity",
+                        "name": "open"
+                    },
+                    {
+                        "data": y_closed,
+                        "type": "bar",
+                        "stack": "issue_activity",
+                        "name": "closed"
+                    }
+                ],
+            }
+
+        self.overall_collection_ref.document(u'_overall').set({
+            u'issue_activity': option,
+        }, merge=True)
+
+        self.overall_collection_ref.document(u'_overall').set({
+            u'recent_issues': self.overall_data["recent_issues"],
+        }, merge=True)
+
+        del self.overall_data["_issue_activity"]
+
+    def overall_code_frequency(self):
+        if (len(self.overall_data["_code_frequency"]) == 0):
+            option = None
+
+        else:
             # Initialize the series data
             series = [
                 {"data": [x[0] for x in self.overall_data["_code_frequency"].values(
@@ -98,106 +229,19 @@ class Fetch:
             }
             del self.overall_data["_code_frequency"]
 
-            self.overall_collection_ref.document(u'_overall').set({
-                u'code_frequency': option,
-            }, merge=True)
-
-        # ----------------- issue activity -----------------
-        if self.overall_data["_issue_activity"]:
-
-            zipped = {str(k): v for k, v in sorted(
-                self.overall_data["_issue_activity"].items(), key=lambda item: item[0], reverse=False)}
-
-            y_open = [v['open'] for _, v in zipped.items()]
-            y_closed = [v['closed'] for _, v in zipped.items()]
-            if len(y_open) == 0 and len(y_closed) == 0:
-                self.overall_data["issue_activity"] = None
-                self.overall_data["recent_issues"] = None
-
-            else:
-                option = {
-                    "xAxis": {
-                        "data": list(zipped.keys())
-                    },
-                    "yAxis": {},
-                    "series": [
-                        {
-                            "data": y_open,
-                            "type": "bar",
-                            "stack": "issue_activity",
-                            "name": "open"
-                        },
-                        {
-                            "data": y_closed,
-                            "type": "bar",
-                            "stack": "issue_activity",
-                            "name": "closed"
-                        }
-                    ],
-                }
-
-            self.overall_collection_ref.document(u'_overall').set({
-                u'issue_activity': option,
-            }, merge=True)
-
-            self.overall_collection_ref.document(u'_overall').set({
-                u'recent_issues': self.overall_data["recent_issues"],
-            }, merge=True)
-
-            del self.overall_data["_issue_activity"]
-
-        # ----------------- issue count -----------------
         self.overall_collection_ref.document(u'_overall').set({
-            u'issue_count': self.overall_data['issue_count'],
+            u'code_frequency': option,
         }, merge=True)
 
-        # ----------------- pull request count -----------------
+    def overall_commit_history(self):
+        if (len(self.overall_data["commit_history"]["series"][0]["data"]) == 0):
+            option = None
+
+        else:
+            option = self.overall_data["commit_history"]
         self.overall_collection_ref.document(u'_overall').set({
-            u'pull_request_count': self.overall_data['pull_request_count'],
+            u'commit_history': option,
         }, merge=True)
-
-        # ----------------- pull request activity -----------------
-        if self.overall_data["_pull_request_activity"]:
-            zipped = {str(k): v for k, v in sorted(
-                self.overall_data["_pull_request_activity"].items(), key=lambda item: item[0], reverse=False)}
-
-            y_open = [v['open'] for _, v in zipped.items()]
-            y_closed = [v['closed'] for _, v in zipped.items()]
-            if len(y_open) == 0 and len(y_closed) == 0:
-                self.overall_data["pull_request_activity"] = None
-
-            else:
-                # Define the option for the stacked bar chart
-                option = {
-                    "xAxis": {
-                        "data": list(zipped.keys())
-                    },
-                    "yAxis": {},
-                    "series": [
-                        {
-                            "data": y_open,
-                            "type": "bar",
-                            "stack": "pull_requests",
-                            "name": "open"
-                        },
-                        {
-                            "data": y_closed,
-                            "type": "bar",
-                            "stack": "pull_requests",
-                            "name": "closed"
-                        }
-                    ],
-                }
-
-            self.overall_collection_ref.document(u'_overall').set({
-                u'pull_request_activity': option,
-            }, merge=True)
-
-            del self.overall_data["_pull_request_activity"]
-
-        # ----------------- star activity -----------------
-
-        # if self.overall_data["_star_activity"]:
 
     def fetch_and_write(self, repo):
         data_repo_doc_ref = self.data_collection_ref.document(
@@ -262,14 +306,15 @@ class Fetch:
         if data is None:
             return None
 
-        # self.data[self._get_hash(owner, repo)
-        #         ]['repository_info'] = data
+        self.overall_data["total_star_count"] += data["stargazers_count"]
+
         return data
 
     def commit_history(self, owner, repo):
         # Returns the total commit counts for the owner and total commit counts in all. all is everyone combined, including the owner in the last 52 weeks
         data = self.make_request.post_rest(
             f"/repos/{owner}/{repo}/stats/participation")
+
         if data is None:
             return None
 
@@ -343,12 +388,8 @@ class Fetch:
         # self.data[self._get_hash(owner, repo)]['code_frequency'] = option
 
     def issue_activity(self, owner, repo):
-        # now = datetime.now()
-        # since_date = (now - timedelta(days=30)
-        #               ).date().strftime("%Y-%m-%dT%H:%M:%SZ")
-
         data = self.make_request.post_rest(f"/repos/{owner}/{repo}/issues",
-                                       {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_fetch=3)
+                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_fetch=3)
 
         if data is None:
             return None, None
@@ -473,14 +514,17 @@ class Fetch:
         if data is None:
             return None
 
+        open_count = data["data"]["repository"]["open"]["totalCount"]
+        closed_count = data["data"]["repository"]["closed"]["totalCount"]
+        if open_count == 0 and closed_count == 0:
+            return None
+
         option = {
             "series": [
                 {
                     "data": [
-                        {"value": data["data"]["repository"]
-                            ["open"]["totalCount"], "name": 'Open'},
-                        {"value": data["data"]["repository"]
-                            ["closed"]["totalCount"], "name": 'Closed'},
+                        {"value": open_count, "name": 'Open'},
+                        {"value": closed_count, "name": 'Closed'},
                     ]
                 }
             ]
@@ -519,14 +563,14 @@ class Fetch:
         if data is None:
             return None
 
+        open_count = data["data"]["repository"]["open"]["totalCount"]
+        closed_count = data["data"]["repository"]["closed"]["totalCount"]
         option = {
             "series": [
                 {
                     "data": [
-                        {"value": data["data"]["repository"]
-                            ["open"]["totalCount"], "name": 'Open'},
-                        {"value": data["data"]["repository"]
-                            ["closed"]["totalCount"], "name": 'Closed'},
+                        {"value": open_count, "name": 'Open'},
+                        {"value": closed_count, "name": 'Closed'},
                     ]
                 }
             ]
@@ -541,10 +585,7 @@ class Fetch:
 
     def pull_request_activity(self, owner, repo):
         data = self.make_request.post_rest(f"/repos/{owner}/{repo}/pulls",
-                                       {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"})
-
-        # data.extend(self.req.post_rest(f"/repos/{owner}/{repo}/pulls",
-        #         {"state": "all", "per_page": 100, "page": 2, "sort": "created", "direction": "asc"}))
+                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"})
 
         if data is None:
             return None
@@ -568,21 +609,21 @@ class Fetch:
             if updated_date_exist is None:
                 y_data_state[updated_at] = {"open": 0, "closed": 0}
 
-            updated_overall_exist = self.overall_data["_pull_request_activity"].get(
-                updated_at, None)
-            if updated_overall_exist is None:
-                self.overall_data["_pull_request_activity"][updated_at] = {
-                    "open": 0, "closed": 0}
+            # updated_overall_exist = self.overall_data["_pull_request_activity"].get(
+            #     updated_at, None)
+            # if updated_overall_exist is None:
+            #     self.overall_data["_pull_request_activity"][updated_at] = {
+            #         "open": 0, "closed": 0}
 
             # Check if the pull request is open or closed
             if pull_request["state"] == "open":
                 # Increment the count for open pull requests
                 y_data_state[updated_at]["open"] += 1
-                self.overall_data["_pull_request_activity"][updated_at]["open"] += 1
+                # self.overall_data["_pull_request_activity"][updated_at]["open"] += 1
             else:
                 # Increment the count for closed pull requests
                 y_data_state[updated_at]["closed"] += 1
-                self.overall_data["_pull_request_activity"][updated_at]["closed"] += 1
+                # self.overall_data["_pull_request_activity"][updated_at]["closed"] += 1
 
         # print(y_data_state)
         # zipped = zip(y_data_state.keys(), y_data_state.values())
@@ -733,7 +774,7 @@ class Fetch:
 
         # Fetch all pages
         results = {}
-        max_fetch_count = 3
+        max_fetch_count = 6
         current_fetch = 0
         while current_fetch <= max_fetch_count:
             data = self.make_request.post_query(
@@ -761,6 +802,9 @@ class Fetch:
                 variables["cursor"] = data["data"]["repository"]["stargazers"]["pageInfo"]["endCursor"]
             else:
                 break
+
+        if(len(results) == 0):
+            return None
 
         # zipped = zip(results.keys(), results.values())
         # zipped = sorted(zipped, key=lambda x: x[0])
@@ -807,29 +851,52 @@ class Fetch:
 
         # Add contributors and their commit count to dictionary
         for user in data:
-            contributor_exist = contributors.get(user['login'], None)
-            if contributor_exist is None:
-                contributors[user['login']] = {
+            # contributor_exist = contributors.get(user['login'], None)
+            # if contributor_exist is None:
+            #     contributors[user['login']] = {
+            #         "login": user['login'],
+            #         "avatar_url": user['avatar_url'],
+            #         "html_url": user['html_url'],
+            #         "project": {
+            #             "name": repo,
+            #             "owner": owner
+            #         },
+            #         "contributions": user['contributions']
+            #     }
+            # else:
+            #     contributors[user['login']
+            #                  ]["contributions"] += user['contributions']
+
+            contributor_overall_exist = self.overall_data["top_contributors"].get(
+                user['login'], None)
+            if contributor_overall_exist is None:
+                self.overall_data["top_contributors"][user['login']] = {
                     "login": user['login'],
                     "avatar_url": user['avatar_url'],
                     "html_url": user['html_url'],
+                    "projects": [{
+                        "name": repo,
+                        "owner": owner,
+                        "contributions": user['contributions']
+                    }],
                     "contributions": user['contributions']
                 }
             else:
-                contributors[user['login']
-                             ]["contributions"] += user['contributions']
+                self.overall_data["top_contributors"][user['login']
+                                                      ]["contributions"] += user['contributions']
+                self.overall_data["top_contributors"][user['login']]['projects'].append({
+                    "name": repo,
+                    "owner": owner,
+                    "contributions": user['contributions']
+                })
 
-        # print(contributors)
         # Sort contributors by commit count in descending order
-        contributors = {k: v for k, v in sorted(contributors.items(
-        ), key=lambda item: item[1]["contributions"], reverse=True)}
+        # contributors = {k: v for k, v in sorted(contributors.items(
+        # ), key=lambda item: item[1]["contributions"], reverse=True)}
 
-        # Get top 10 contributors
-        top_c = dict(list(contributors.items())[:4])
-
-        # self.data[self._get_hash(owner, repo)
-        #           ]['top_contributors'] = list(top_10_contributors.values())
-        return list(top_c.values())
+        # # Get top 10 contributors
+        # top_c = dict(list(contributors.items())[:4])
+        return data[:4]
 
     def recent_commits(self, owner, repo):
         variables = {
@@ -841,6 +908,17 @@ class Fetch:
         if data is None:
             return None
 
+        for _recent_commit in data:
+            _inserted = False
+            for overall_i, overall_val in enumerate(self.overall_data["recent_commits"]):
+                if overall_val['commit']['author']["date"] < _recent_commit['commit']['author']["date"]:
+                    self.overall_data["recent_commits"].insert(
+                        overall_i, _recent_commit)
+                    _inserted = True
+                    break
+
+            if not _inserted:
+                self.overall_data["recent_commits"].append(_recent_commit)
+
+        self.overall_data["recent_commits"] = self.overall_data["recent_commits"][:5]
         return data
-        # self.data[self._get_hash(owner, repo)
-        #           ]['recent_commits'] = data
