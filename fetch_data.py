@@ -634,7 +634,7 @@ class Fetch:
         y_open = [v['open'] for _, v in zipped.items()]
         y_closed = [v['closed'] for _, v in zipped.items()]
         if len(y_open) == 0 and len(y_closed) == 0:
-            return None, None
+            return None
 
         # Define the option for the stacked bar chart
         option = {
