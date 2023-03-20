@@ -1,5 +1,5 @@
 import json
-from github_request import GithubRequest
+from request_actor import GRequest
 from datetime import datetime
 # import pandas as pd
 # from collections import defaultdict
@@ -10,25 +10,27 @@ from firestore import FirestoreDB
 import os
 
 
-class Fetch:
-    def __init__(self):
-        self.make_request = GithubRequest()
+class Update:
+    def __init__(self, fire_ctx, ecosystem):
+        self.make_request = GRequest()
         self.data = {}
         self.collection_index = 0
 
-        self.fire_ctx = FirestoreDB()
-        self.fire_app: FirestoreDB = self.fire_ctx.get_app
-        self.db: FirestoreDB = self.fire_ctx.get_db
+        self.fire_app: FirestoreDB = fire_ctx.get_app
+        self.db: FirestoreDB = fire_ctx.get_db
+
         self.info_collection_ref = self.db.collection(
-            os.getenv('FIREBASE_INFO_COLLECTION'))
+            f'{ecosystem}-repositories-info')
         self.data_collection_ref = self.db.collection(
-            os.getenv('FIREBASE_DATA_COLLECTION'))
+            f'{ecosystem}-repositories-data')
         self.overall_collection_ref = self.db.collection(
-            os.getenv('FIREBASE_OVERALL_COLLECTION'))
+            f'{ecosystem}-repositories-overall')
 
         self.all_repo_names = self.data_collection_ref.document(
             u'_names').get().to_dict()["repository_names"]
 
+    def seed(self):
+        print('[*] Seeding the database')
         self.init_overall()
         # self.all_repo_info_doc_ref = self.info_collection_ref.document(u'_info')
         for repo in self.all_repo_names:
@@ -300,24 +302,22 @@ class Fetch:
         return f"{owner}/{repo}"
 
     def repository_info(self, owner, repo):
-        data = self.make_request.post_rest(
-            f"/repos/{owner}/{repo}", fetch_all=False)
+        data = self.make_request.github_post_rest_request(
+            f"/repos/{owner}/{repo}", max_page_fetch=1)
 
         if data is None:
             return None
-
         self.overall_data["total_star_count"] += data["stargazers_count"]
 
         return data
 
     def commit_history(self, owner, repo):
         # Returns the total commit counts for the owner and total commit counts in all. all is everyone combined, including the owner in the last 52 weeks
-        data = self.make_request.post_rest(
+        data = self.make_request.github_post_rest_request(
             f"/repos/{owner}/{repo}/stats/participation")
 
         if data is None:
             return None
-
         # Initialize the series data
         series = [
             {"data": data["all"], "type": "line"},
@@ -344,7 +344,7 @@ class Fetch:
 
     def code_frequency(self, owner, repo):
         # weekly aggregate of the number of additions and deletions pushed to a repository.
-        data = self.make_request.post_rest(
+        data = self.make_request.github_post_rest_request(
             f"/repos/{owner}/{repo}/stats/code_frequency")
 
         if data is None:
@@ -388,8 +388,8 @@ class Fetch:
         # self.data[self._get_hash(owner, repo)]['code_frequency'] = option
 
     def issue_activity(self, owner, repo):
-        data = self.make_request.post_rest(f"/repos/{owner}/{repo}/issues",
-                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_fetch=3)
+        data = self.make_request.github_post_rest_request(f"/repos/{owner}/{repo}/issues",
+                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
 
         if data is None:
             return None, None
@@ -509,7 +509,7 @@ class Fetch:
             "name": repo,
         }
 
-        data = self.make_request.post_query(query, variables)
+        data = self.make_request.github_post_graphql_request(query, variables)
 
         if data is None:
             return None
@@ -558,7 +558,7 @@ class Fetch:
             "name": repo,
         }
 
-        data = self.make_request.post_query(query, variables)
+        data = self.make_request.github_post_graphql_request(query, variables)
 
         if data is None:
             return None
@@ -584,8 +584,8 @@ class Fetch:
         return option
 
     def pull_request_activity(self, owner, repo):
-        data = self.make_request.post_rest(f"/repos/{owner}/{repo}/pulls",
-                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"})
+        data = self.make_request.github_post_rest_request(f"/repos/{owner}/{repo}/pulls",
+                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
 
         if data is None:
             return None
@@ -693,7 +693,7 @@ class Fetch:
         # Initialize the pull request data
         pull_requests = []
         while True:
-            data = self.make_request.post_query(query, variables)
+            data = self.make_request.github_post_graphql_request(query, variables)
             # data = json.loads(res.text)
             latest_dt = datetime.strptime(
                 data["data"]["repository"]["pullRequests"]["nodes"][-1]["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").date()
@@ -777,7 +777,7 @@ class Fetch:
         max_fetch_count = 6
         current_fetch = 0
         while current_fetch <= max_fetch_count:
-            data = self.make_request.post_query(
+            data = self.make_request.github_post_graphql_request(
                 query, variables)
 
             # print(current_fetch)
@@ -843,8 +843,8 @@ class Fetch:
             "per_page": 100
         }
         # Send GET request to API endpoint
-        data = self.make_request.post_rest(
-            f"/repos/{owner}/{repo}/contributors", variables=variables, fetch_all=False)
+        data = self.make_request.github_post_rest_request(
+            f"/repos/{owner}/{repo}/contributors", variables=variables, max_page_fetch=1)
 
         if data is None:
             return None
@@ -902,8 +902,8 @@ class Fetch:
         variables = {
             "per_page": 5
         }
-        data = self.make_request.post_rest(
-            f"/repos/{owner}/{repo}/commits", variables=variables, fetch_all=False)
+        data = self.make_request.github_post_rest_request(
+            f"/repos/{owner}/{repo}/commits", variables=variables, max_page_fetch=1)
 
         if data is None:
             return None
