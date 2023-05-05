@@ -11,7 +11,21 @@ import os
 
 
 class Update:
+
+# The Update class is responsible for updating the Firestore database with information about GitHub repositories. It uses the GRequest class to make requests to the GitHub API and fetches data about various aspects of the repositories, such as commit history, code frequency, issue activity, and top contributors. The class then writes this data to the Firestore database, organized by repository and ecosystem.
+
     def __init__(self, fire_ctx, ecosystem):
+
+        # - make_request: An instance of the GRequest class for making requests to the GitHub API.
+        # - data: A dictionary containing data about the repositories.
+        # - collection_index: An index used for organizing data in the Firestore database.
+        # - fire_app: An instance of the FirestoreDB class for accessing the Firestore database.
+        # - db: A reference to the Firestore database.
+        # - info_collection_ref: A reference to the collection in the Firestore database containing information about the repositories.
+        # - data_collection_ref: A reference to the collection in the Firestore database containing data about the repositories.
+        # - overall_collection_ref: A reference to the collection in the Firestore database containing overall data about the ecosystem.
+        # - all_repo_names: A list of all repository names in the ecosystem.
+
         self.make_request = GRequest()
         self.data = {}
         self.collection_index = 0
@@ -28,6 +42,33 @@ class Update:
 
         self.all_repo_names = self.data_collection_ref.document(
             u'_names').get().to_dict()["repository_names"]
+
+    # - seed(): Seeds the database with information about all repositories in the ecosystem.
+    # - init_overall(): Initializes the overall_data dictionary with default values for various metrics.
+    # - write_overall(): Writes the overall_data dictionary to the Firestore database.
+    # - overall_total_project_count(): Calculates the total number of projects in the ecosystem and updates the overall_data dictionary.
+    # - overall_star_count(): Calculates the total number of stars in the ecosystem and updates the overall_data dictionary.
+    # - overall_top_contributors(): Calculates the top contributors in the ecosystem and updates the overall_data dictionary.
+    # - overall_recent_commits(): Calculates the most recent commits in the ecosystem and updates the overall_data dictionary.
+    # - overall_pull_request_count(): Calculates the number of open and closed pull requests in the ecosystem and updates the overall_data dictionary.
+    # - overall_issue_count(): Calculates the number of open and closed issues in the ecosystem and updates the overall_data dictionary.
+    # - overall_issue_activity(): Calculates the issue activity in the ecosystem and updates the overall_data dictionary.
+    # - overall_code_frequency(): Calculates the code frequency in the ecosystem and updates the overall_data dictionary.
+    # - overall_commit_history(): Calculates the commit history in the ecosystem and updates the overall_data dictionary.
+    # - fetch_and_write(): Fetches data about a specific repository and writes it to the Firestore database.
+    # - get_data(): Getter method for the data field.
+    # - _get_hash(): Helper method for generating a hash value for a repository.
+    # - repository_info(): Fetches information about a repository.
+    # - commit_history(): Fetches the commit history for a repository.
+    # - code_frequency(): Fetches the code frequency for a repository.
+    # - issue_activity(): Fetches the issue activity for a repository.
+    # - issue_count(): Fetches the issue count for a repository.
+    # - pull_request_count(): Fetches the pull request count for a repository.
+    # - pull_request_activity(): Fetches the pull request activity for a repository.
+    # - pull_request_activity_ql(): Fetches the pull request activity for a repository using GraphQL.
+    # - star_activity(): Fetches the star activity for a repository.
+    # - top_contributors(): Fetches the top contributors for a repository.
+    # - recent_commits(): Fetches the most recent commits for a repository.
 
     def seed(self):
         print('[*] Seeding the database')
@@ -897,6 +938,8 @@ class Update:
         # # Get top 10 contributors
         # top_c = dict(list(contributors.items())[:4])
         return data[:4]
+
+
 
     def recent_commits(self, owner, repo):
         variables = {
