@@ -76,7 +76,9 @@ class Update:
         # self.all_repo_info_doc_ref = self.info_collection_ref.document(u'_info')
         for repo in self.all_repo_names:
             print(f'[*] {repo}')
-            self.fetch_and_write(repo)
+            valid = self.make_request.check_repo(repo['owner'], repo['repo'])
+            if valid:
+                self.fetch_and_write(repo)
 
         self.overall_data['total_project_count'] = len(self.all_repo_names)
         self.write_overall()

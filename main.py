@@ -17,10 +17,13 @@ class Main():
             self.admin_sdk_path = f"{os.environ['ADMIN_SDKS_PATH']}/{project_short_id}-admin-sdk.json"
             if not os.path.exists(self.admin_sdk_path):
                 raise Exception(f'Admin SDK file not found: {self.admin_sdk_path}')
-            print(f'Using {self.admin_sdk_path} to seed the database')
 
             self.fire_ctx = FirestoreDB(self.admin_sdk_path, project_id)
             self.fetch_ctx = Update(self.fire_ctx, project_short_id)
+            print(f'Using {self.admin_sdk_path} to seed the database')
+            self.update_db()
+            
+            print("Starting the scheduler")
             schedule.every().day.at("00:00").do(self.update_db)
             while 1:
                 schedule.run_pending()
