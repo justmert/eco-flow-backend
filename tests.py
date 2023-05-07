@@ -8,11 +8,6 @@ import os
 import pytest
 
 """
-Code Analysis
-
-Main functionalities:
-The Update class is responsible for updating the Firestore database with data fetched from the GitHub API. It initializes the necessary collections and documents in the database, and provides methods for fetching and writing data for each repository. It also has methods for generating overall statistics for all repositories in the ecosystem, and writing them to the database.
-
 Methods:
 - seed(): seeds the database with data for all repositories in the ecosystem
 - init_overall(): initializes the overall_data dictionary with default values for the overall statistics
@@ -43,7 +38,7 @@ class TestUpdate:
     # Tests that the database is seeded correctly with valid data. 
     def test_seed(self):
         # setup
-        fire_ctx = FirestoreDB(admin_sdk_path='/Users/mert/Projects/eco-pulse/eco-pulse-frontend-private/admin_sdks', project_id='test-project')
+        fire_ctx = FirestoreDB(admin_sdk_path='path/to/credentials.json', project_id='test-project')
         ecosystem = 'test-ecosystem'
         update = Update(fire_ctx, ecosystem)
 
@@ -154,7 +149,13 @@ class TestUpdate:
     def test_code_frequency():
         owner = "paritytech"
         repo = "polkadot"
-        option = self.code_frequency(owner, repo)
+
+        fire_ctx = FirestoreDB(admin_sdk_path='path/to/credentials.json', project_id='test-project')
+        ecosystem = 'test-ecosystem'
+        update = Update(fire_ctx, ecosystem)
+
+
+        option = update.code_frequency(owner, repo)
 
         # Check that the function returns a valid option
         assert option is not None
@@ -182,13 +183,18 @@ class TestUpdate:
             assert len(data) == 52
 
         # Check that the overall_data has been updated correctly
-        assert self.overall_data["_code_frequency"] != {}
+        assert update.overall_data["_code_frequency"] != {}
 
 
     def test_commit_history():
         owner = "paritytech"
         repo = "polkadot"
-        option = self.commit_history(owner, repo)
+        
+        fire_ctx = FirestoreDB(admin_sdk_path='path/to/credentials.json', project_id='test-project')
+        ecosystem = 'test-ecosystem'
+        update = Update(fire_ctx, ecosystem)
+
+        option = update.commit_history(owner, repo)
 
         # Check that the function returns a valid option
         assert option is not None

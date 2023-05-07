@@ -1,3 +1,4 @@
 requests==2.27.1
 firebase==3.0.1
 python-dotenv==0.16.0
+schedule==1.2.0
