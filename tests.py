@@ -5,6 +5,7 @@ from request_actor import GRequest
 import os
 import pytest
 from dotenv import load_dotenv
+from datetime import datetime
 load_dotenv()
 
 
@@ -40,12 +41,17 @@ ECOSYSTEM = "polka"
 OWNER = "paritytech"
 REPO = "polkadot"
 
+
+@pytest.fixture
+def test_instance():
+    update_ctx = Update("polkadot")
+    update_ctx.init_overall()
+    return update_ctx
+
 class TestUpdate:
     # Tests that the database is seeded correctly with valid data. 
-    def test_commit_history(self):
-        update_ctx = Update("polkadot")
-        update_ctx.init_overall()
-        option = update_ctx.commit_history(OWNER, REPO)
+    def test_commit_history(self, test_instance):
+        option = test_instance.commit_history(OWNER, REPO)
 
         # Check that the function returns a valid option
         assert option is not None
@@ -71,3 +77,169 @@ class TestUpdate:
         data = series_element["data"]
         assert isinstance(data, list)
         assert len(data) == 52
+
+
+def test_code_frequency(test_instance):
+    # Call the function
+    result = test_instance.code_frequency(OWNER, REPO)
+
+    # Check that the function returns a dictionary
+    assert isinstance(result, dict)
+
+    # Check that the dictionary has the expected keys
+    expected_keys = ["xAxis", "yAxis", "series"]
+    assert all(key in result.keys() for key in expected_keys)
+
+    # Check that the "xAxis" key has a non-empty list as its value
+    assert isinstance(result["xAxis"], dict)
+    assert "data" in result["xAxis"].keys()
+    assert isinstance(result["xAxis"]["data"], list)
+    assert len(result["xAxis"]["data"]) > 0
+
+    # Check that the "series" key has a list with two dictionaries as its value
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) == 2
+    assert isinstance(result["series"][0], dict)
+    assert isinstance(result["series"][1], dict)
+
+
+
+def test_issue_activity(test_instance):
+    # Call the function
+    recent_issues, result = test_instance.issue_activity(OWNER, REPO)
+
+    # Check that the function returns a tuple with two items
+    assert isinstance(result, dict)
+    assert isinstance(recent_issues, list)
+
+    # Check that the dictionary has the expected keys
+    expected_keys = ["xAxis", "yAxis", "series"]
+    assert all(key in result.keys() for key in expected_keys)
+
+    # Check that the "xAxis" key has a non-empty list as its value
+    assert isinstance(result["xAxis"], dict)
+    assert "data" in result["xAxis"].keys()
+    assert isinstance(result["xAxis"]["data"], list)
+    assert len(result["xAxis"]["data"]) > 0
+
+    # Check that the "series" key has a list with two dictionaries as its value
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) == 2
+    assert isinstance(result["series"][0], dict)
+    assert isinstance(result["series"][1], dict)
+
+    # Check that the recent_issues list has at most 5 issues
+    assert len(recent_issues) <= 5
+
+
+def test_issue_count(test_instance):
+    # Call the function
+    result = test_instance.issue_count(OWNER, REPO)
+
+    # Check that the function returns a dictionary
+    assert isinstance(result, dict)
+
+    # Check that the dictionary has the expected keys
+    expected_keys = ["series"]
+    assert all(key in result.keys() for key in expected_keys)
+
+    # Check that the "series" key has a list with one dictionary as its value
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) == 1
+    assert isinstance(result["series"][0], dict)
+
+    # Check that the dictionary has been updated with the correct data
+    expected_open_count = test_instance.overall_data["issue_count"]["series"][0]["data"][0]["value"]  # expected open issue count
+    expected_closed_count = test_instance.overall_data["issue_count"]["series"][0]["data"][1]["value"]  # expected closed issue count
+    assert result["series"][0]["data"][0]["value"] == expected_open_count
+    assert result["series"][0]["data"][1]["value"] == expected_closed_count
+
+
+def test_pull_request_count(test_instance):
+    # Call the function
+    result = test_instance.pull_request_count(OWNER, REPO)
+
+    # Check that the function returns a dictionary
+    assert isinstance(result, dict)
+
+    # Check that the dictionary has the expected keys
+    expected_keys = ["series"]
+    assert all(key in result.keys() for key in expected_keys)
+
+    # Check that the "series" key has a list with one dictionary as its value
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) == 1
+    assert isinstance(result["series"][0], dict)
+
+    # Check that the dictionary has been updated with the correct data
+    expected_open_count = test_instance.overall_data["pull_request_count"]["series"][0]["data"][0]["value"]  # expected open PR count
+    expected_closed_count = test_instance.overall_data["pull_request_count"]["series"][0]["data"][1]["value"]  # expected closed PR count
+    assert result["series"][0]["data"][0]["value"] == expected_open_count
+    assert result["series"][0]["data"][1]["value"] == expected_closed_count
+
+
+def test_pull_request_activity(test_instance):
+    # Call the function
+    result = test_instance.pull_request_activity(OWNER, REPO)
+
+    # Check that the function returns a dictionary
+    assert isinstance(result, dict)
+
+    # Check that the dictionary has the expected keys
+    expected_keys = ["xAxis", "yAxis", "series"]
+    assert all(key in result.keys() for key in expected_keys)
+
+    # Check that the "series" key has a list with two dictionaries as its value
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) == 2
+    assert isinstance(result["series"][0], dict)
+    assert isinstance(result["series"][1], dict)
+
+    # Check that the dictionary has the expected values for the "xAxis" and "yAxis" keys
+    assert result["xAxis"]["data"] is not None
+    assert result["yAxis"] == {}
+
+    # Check that the dictionary has the expected values for the "series" key
+    expected_names = ["open", "closed"]
+    for i, name in enumerate(expected_names):
+        assert result["series"][i]["name"] == name
+        assert result["series"][i]["type"] == "bar"
+        assert result["series"][i]["stack"] == "pull_requests"
+        assert isinstance(result["series"][i]["data"], list)
+
+def test_star_activity(test_instance):
+    result = test_instance.star_activity(OWNER, REPO)
+    assert result is not None
+    assert isinstance(result, dict)
+    assert "xAxis" in result
+    assert "yAxis" in result
+    assert "series" in result
+    assert "data" in result["series"][0]
+    assert isinstance(result["series"][0]["data"], list)
+    assert all(isinstance(date_str, str) for date_str in result["xAxis"]["data"])
+    assert all(isinstance(count, int) for count in result["series"][0]["data"])
+    assert all(datetime.strptime(date_str, "%Y-%m-%d").date() for date_str in result["xAxis"]["data"])
+
+def test_top_contributors(test_instance):
+    result = test_instance.top_contributors(OWNER, REPO)
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) == 4
+    for contributor in result:
+        assert isinstance(contributor, dict)
+        assert "login" in contributor
+        assert "avatar_url" in contributor
+        assert "html_url" in contributor
+        assert "contributions" in contributor
+
+def test_recent_commits(test_instance):
+    result = test_instance.recent_commits(OWNER, REPO)
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) == 5
+    for commit in result:
+        assert isinstance(commit, dict)
+        assert "commit" in commit
+        assert "author" in commit["commit"]
+        assert "date" in commit["commit"]["author"]
+        assert isinstance(commit["commit"]["author"]["date"], str)

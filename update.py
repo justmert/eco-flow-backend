@@ -12,9 +12,9 @@ import os
 
 class Update:
 
-# The Update class is responsible for updating the Firestore database with information about GitHub repositories. It uses the GRequest class to make requests to the GitHub API and fetches data about various aspects of the repositories, such as commit history, code frequency, issue activity, and top contributors. The class then writes this data to the Firestore database, organized by repository and ecosystem.
+    # The Update class is responsible for updating the Firestore database with information about GitHub repositories. It uses the GRequest class to make requests to the GitHub API and fetches data about various aspects of the repositories, such as commit history, code frequency, issue activity, and top contributors. The class then writes this data to the Firestore database, organized by repository and ecosystem.
 
-    def __init__(self, ecosystem, fire_ctx = None):
+    def __init__(self, ecosystem, fire_ctx=None):
 
         # - make_request: An instance of the GRequest class for making requests to the GitHub API.
         # - data: A dictionary containing data about the repositories.
@@ -130,15 +130,9 @@ class Update:
         self.overall_commit_history()
 
         # ----------------- code frequency -----------------
-        # if self.overall_data["_code_frequency"]:
-        # Initialize the x-axis labels
-        # x_axis = []
-
         self.overall_code_frequency()
 
         # ----------------- issue activity -----------------
-        # if self.overall_data["_issue_activity"]:
-
         self.overall_issue_activity()
 
         # ----------------- issue count -----------------
@@ -151,8 +145,6 @@ class Update:
         self.overall_recent_commits()
 
         # ----------------- top contributors -----------------
-        # if self.overall_data["top_contributors"]:
-
         self.overall_top_contributors()
 
         # ----------------- total project count -----------------
@@ -429,11 +421,10 @@ class Update:
         }
 
         return option
-        # self.data[self._get_hash(owner, repo)]['code_frequency'] = option
 
     def issue_activity(self, owner, repo):
         data = self.make_request.github_post_rest_request(f"/repos/{owner}/{repo}/issues",
-                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
+                                                          {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
 
         if data is None:
             return None, None
@@ -448,9 +439,6 @@ class Update:
             is_pull_request = issue.get("pull_request", None)
             if is_pull_request is not None:  # meh, it is pr, skip it
                 continue
-
-            # Extract the date when the issues was created
-            # created_at = datetime.strptime(pull_request["created_at"], "%Y-%m-%dT%H:%M:%SZ").date()
 
             # Extract the date when the issues was updated
             updated_at = datetime.strptime(
@@ -531,8 +519,6 @@ class Update:
             ],
         }
         return recent_issues, option
-        # self.data[self._get_hash(owner, repo)]['recent_issues'] = recent_issues
-        # self.data[self._get_hash(owner, repo)]['issue_activity'] = option
 
     def issue_count(self, owner, repo):
         query = """
@@ -580,7 +566,6 @@ class Update:
         except Exception as ex:
             print(ex)
             return None
-        # self.data[self._get_hash(owner, repo)]['issue_count'] = option
         return option
 
         # Initialize the pull request data
@@ -631,7 +616,7 @@ class Update:
 
     def pull_request_activity(self, owner, repo):
         data = self.make_request.github_post_rest_request(f"/repos/{owner}/{repo}/pulls",
-                                           {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
+                                                          {"state": "all", "per_page": 100, "sort": "updated", "direction": "desc"}, max_page_fetch=3)
 
         if data is None:
             return None
@@ -643,7 +628,6 @@ class Update:
         # Iterate through the pull requests
         for pull_request in data:
             # Extract the date when the pull request was created
-            # created_at = datetime.strptime(pull_request["created_at"], "%Y-%m-%dT%H:%M:%SZ").date()
 
             # Extract the date when the pull request was updated
             updated_at = datetime.strptime(
@@ -655,25 +639,13 @@ class Update:
             if updated_date_exist is None:
                 y_data_state[updated_at] = {"open": 0, "closed": 0}
 
-            # updated_overall_exist = self.overall_data["_pull_request_activity"].get(
-            #     updated_at, None)
-            # if updated_overall_exist is None:
-            #     self.overall_data["_pull_request_activity"][updated_at] = {
-            #         "open": 0, "closed": 0}
-
             # Check if the pull request is open or closed
             if pull_request["state"] == "open":
                 # Increment the count for open pull requests
                 y_data_state[updated_at]["open"] += 1
-                # self.overall_data["_pull_request_activity"][updated_at]["open"] += 1
             else:
                 # Increment the count for closed pull requests
                 y_data_state[updated_at]["closed"] += 1
-                # self.overall_data["_pull_request_activity"][updated_at]["closed"] += 1
-
-        # print(y_data_state)
-        # zipped = zip(y_data_state.keys(), y_data_state.values())
-        # zipped = sorted(zipped, key=lambda x: x[0])
         zipped = {str(k): v for k, v in sorted(
             y_data_state.items(), key=lambda item: item[0], reverse=False)}
 
@@ -703,8 +675,6 @@ class Update:
                 }
             ],
         }
-        # self.data[self._get_hash(owner, repo)
-        #           ]['pull_request_activity'] = option
         return option
 
     def pull_request_activity_ql(self, owner, repo):
@@ -739,7 +709,8 @@ class Update:
         # Initialize the pull request data
         pull_requests = []
         while True:
-            data = self.make_request.github_post_graphql_request(query, variables)
+            data = self.make_request.github_post_graphql_request(
+                query, variables)
             # data = json.loads(res.text)
             latest_dt = datetime.strptime(
                 data["data"]["repository"]["pullRequests"]["nodes"][-1]["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").date()
@@ -791,9 +762,6 @@ class Update:
                 }
             ],
         }
-        # return option
-        # self.data[self._get_hash(owner, repo)
-        #           ]['pull_request_activity'] = option
         return option
 
     def star_activity(self, owner, repo):
@@ -875,8 +843,6 @@ class Update:
                 }
             ]
         }
-        # self.data[self._get_hash(owner, repo)
-        #           ]['star_activity'] = option
         return option
 
     def top_contributors(self, owner, repo):
@@ -897,22 +863,6 @@ class Update:
 
         # Add contributors and their commit count to dictionary
         for user in data:
-            # contributor_exist = contributors.get(user['login'], None)
-            # if contributor_exist is None:
-            #     contributors[user['login']] = {
-            #         "login": user['login'],
-            #         "avatar_url": user['avatar_url'],
-            #         "html_url": user['html_url'],
-            #         "project": {
-            #             "name": repo,
-            #             "owner": owner
-            #         },
-            #         "contributions": user['contributions']
-            #     }
-            # else:
-            #     contributors[user['login']
-            #                  ]["contributions"] += user['contributions']
-
             contributor_overall_exist = self.overall_data["top_contributors"].get(
                 user['login'], None)
             if contributor_overall_exist is None:
@@ -936,15 +886,7 @@ class Update:
                     "contributions": user['contributions']
                 })
 
-        # Sort contributors by commit count in descending order
-        # contributors = {k: v for k, v in sorted(contributors.items(
-        # ), key=lambda item: item[1]["contributions"], reverse=True)}
-
-        # # Get top 10 contributors
-        # top_c = dict(list(contributors.items())[:4])
         return data[:4]
-
-
 
     def recent_commits(self, owner, repo):
         variables = {
