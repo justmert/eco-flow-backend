@@ -556,27 +556,29 @@ class Update:
 
         if data is None:
             return None
+        try:
+            open_count = data["data"]["repository"]["open"]["totalCount"]
+            closed_count = data["data"]["repository"]["closed"]["totalCount"]
+            if open_count == 0 and closed_count == 0:
+                return None
 
-        open_count = data["data"]["repository"]["open"]["totalCount"]
-        closed_count = data["data"]["repository"]["closed"]["totalCount"]
-        if open_count == 0 and closed_count == 0:
+            option = {
+                "series": [
+                    {
+                        "data": [
+                            {"value": open_count, "name": 'Open'},
+                            {"value": closed_count, "name": 'Closed'},
+                        ]
+                    }
+                ]
+            }
+
+            # sum current overall count with new data
+            self.overall_data["issue_count"]["series"][0]["data"][0]["value"] += data["data"]["repository"]["open"]["totalCount"]
+            self.overall_data["issue_count"]["series"][0]["data"][1]["value"] += data["data"]["repository"]["closed"]["totalCount"]
+        except Exception as ex:
+            print(ex)
             return None
-
-        option = {
-            "series": [
-                {
-                    "data": [
-                        {"value": open_count, "name": 'Open'},
-                        {"value": closed_count, "name": 'Closed'},
-                    ]
-                }
-            ]
-        }
-
-        # sum current overall count with new data
-        self.overall_data["issue_count"]["series"][0]["data"][0]["value"] += data["data"]["repository"]["open"]["totalCount"]
-        self.overall_data["issue_count"]["series"][0]["data"][1]["value"] += data["data"]["repository"]["closed"]["totalCount"]
-
         # self.data[self._get_hash(owner, repo)]['issue_count'] = option
         return option
 
