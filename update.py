@@ -14,7 +14,7 @@ class Update:
 
 # The Update class is responsible for updating the Firestore database with information about GitHub repositories. It uses the GRequest class to make requests to the GitHub API and fetches data about various aspects of the repositories, such as commit history, code frequency, issue activity, and top contributors. The class then writes this data to the Firestore database, organized by repository and ecosystem.
 
-    def __init__(self, fire_ctx, ecosystem):
+    def __init__(self, ecosystem, fire_ctx = None):
 
         # - make_request: An instance of the GRequest class for making requests to the GitHub API.
         # - data: A dictionary containing data about the repositories.
@@ -30,18 +30,19 @@ class Update:
         self.data = {}
         self.collection_index = 0
 
-        self.fire_app: FirestoreDB = fire_ctx.get_app
-        self.db: FirestoreDB = fire_ctx.get_db
+        if fire_ctx is not None:
+            self.fire_app: FirestoreDB = fire_ctx.get_app
+            self.db: FirestoreDB = fire_ctx.get_db
 
-        self.info_collection_ref = self.db.collection(
-            f'{ecosystem}-repositories-info')
-        self.data_collection_ref = self.db.collection(
-            f'{ecosystem}-repositories-data')
-        self.overall_collection_ref = self.db.collection(
-            f'{ecosystem}-repositories-overall')
+            self.info_collection_ref = self.db.collection(
+                f'{ecosystem}-repositories-info')
+            self.data_collection_ref = self.db.collection(
+                f'{ecosystem}-repositories-data')
+            self.overall_collection_ref = self.db.collection(
+                f'{ecosystem}-repositories-overall')
 
-        self.all_repo_names = self.data_collection_ref.document(
-            u'_names').get().to_dict()["repository_names"]
+            self.all_repo_names = self.data_collection_ref.document(
+                u'_names').get().to_dict()["repository_names"]
 
     # - seed(): Seeds the database with information about all repositories in the ecosystem.
     # - init_overall(): Initializes the overall_data dictionary with default values for various metrics.

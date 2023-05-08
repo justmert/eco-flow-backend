@@ -19,7 +19,7 @@ class Main():
                 raise Exception(f'Admin SDK file not found: {self.admin_sdk_path}')
 
             self.fire_ctx = FirestoreDB(self.admin_sdk_path, project_id)
-            self.fetch_ctx = Update(self.fire_ctx, project_short_id)
+            self.fetch_ctx = Update(project_short_id, fire_ctx=self.fire_ctx)
             print(f'Using {self.admin_sdk_path} to seed the database')
             self.update_db()
             
