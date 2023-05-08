@@ -3,8 +3,8 @@
 Create .env file in the root directory and add the following variables:
 
 ```
-GITHUB_BEARER_KEY
-ADMIN_SDKS_PATH
+GITHUB_BEARER_KEY # GitHub API key
+ADMIN_SDKS_PATH # Path to the admin SDKs
 ```
 
 ## Install dependencies
@@ -12,6 +12,14 @@ ADMIN_SDKS_PATH
 ```
 pip3 install -r requirements.txt
 
+```
+
+## Test the app
+
+In the root directory, run the following command:
+
+```
+pytest tests.py
 ```
 
 
