@@ -15,13 +15,13 @@ print('Adding the following projects to the database:')
 found_project = [p for p in projects if p[0] == args.ecosystem][0]
 t_project_short_id, t_project_id, t_project_name = found_project
 
-cred = credentials.Certificate(f"{os.environ['ADMIN_SDKS_PATH']}/{t_project_short_id}-admin-sdk.json")
+cred = credentials.Certificate(f"{os.environ['ADMIN_SDK_PATH']}")
 app = firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 project_array_ref = db.collection(f'{t_project_short_id}-repositories-data').document('_names')
 
-with open(f"initial_projects/{t_project_short_id}.txt") as file:
+with open(f"{os.environ['PROJECT_LIST']}") as file:
     lines = [line.strip() for line in file]
 
 lines = [line for line in lines if line != '']

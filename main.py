@@ -14,7 +14,7 @@ class Main():
             print('-'*50)
             print(f'Processing {project_name}')
             print('-'*50)
-            self.admin_sdk_path = f"{os.environ['ADMIN_SDKS_PATH']}/{project_short_id}-admin-sdk.json"
+            self.admin_sdk_path = f"{os.environ['ADMIN_SDK_PATH']}"
             if not os.path.exists(self.admin_sdk_path):
                 raise Exception(f'Admin SDK file not found: {self.admin_sdk_path}')
 

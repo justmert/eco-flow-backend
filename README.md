@@ -4,14 +4,18 @@ Create .env file in the root directory and add the following variables:
 
 ```
 GITHUB_BEARER_KEY # GitHub API key
-ADMIN_SDKS_PATH # Path to the admin SDKs
+ADMIN_SDK_PATH # Path to the admin SDK file
+PROJECT_LIST # Path to the project list file
 ```
+
+> Know that admin sdk file and project list files needs to be in this format:
+> `<ecosystenm_name>-admin-sdk.json` and `<ecosystenm_name>.txt` respectively.
+> Also <ecosystem_name.txt> needs to include line by line project names. For example: `paritytech/substrate`
 
 ## Install dependencies
 
 ```
 pip3 install -r requirements.txt
-
 ```
 
 ## Test the app
@@ -25,11 +29,11 @@ pytest tests.py
 
 ## Run the app
 
-In the root directory, run the following command:
+Scripts run in the following order:
 
 ```
-python3 .
-```
+python3 seed.py --ecosystem <ecosystem_name>  # to feed the database with projects
 
-This command will execute the script that fetches the data from the GitHub API and saves it in the Firebase Firestore database.
+python3 .  # to update project info in the database
+```
 
